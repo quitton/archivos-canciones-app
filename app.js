@@ -179,15 +179,46 @@ $(document).ready(function(){
     sugerirModal.hide();
     renderCategoriasResumen();
   });
+
+  // Manejo de archivo de audio
+  $('#audioFile').on('change', function(e){
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        $('#audioData').val(evt.target.result);
+      }
+      reader.readAsDataURL(file);
+    } else {
+      $('#audioData').val('');
+    }
+  });
+  // Manejo de archivo de imagen
+  $('#imagenFile').on('change', function(e){
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        $('#imagenData').val(evt.target.result);
+      }
+      reader.readAsDataURL(file);
+    } else {
+      $('#imagenData').val('');
+    }
+  });
 });
 // --- Formulario ---
 function limpiarFormulario() {
   $('#archivoId').val('');
   $('#titulo').val('');
   $('#letra').val('');
+  $('#audioData').val('');
+  $('#audioFile').val('');
   $('#audio').val('');
   $('#interprete').val('');
   $('#creditos').val('');
+  $('#imagenData').val('');
+  $('#imagenFile').val('');
   $('#imagen').val('');
   $('#motivos').val('');
   $('#emociones').val('');
@@ -199,10 +230,15 @@ window.editarArchivo = function(id) {
   $('#archivoId').val(archivo.id);
   $('#titulo').val(archivo.titulo);
   $('#letra').val(archivo.letra);
-  $('#audio').val(archivo.audio);
+  // Si existe audio en base64, lo pone en el campo oculto
+  $('#audioData').val(archivo.audio || '');
+  $('#audioFile').val('');
+  $('#audio').val(''); // No se puede mostrar URL/base64 directamente, se deja vacío
   $('#interprete').val(archivo.interprete || '');
   $('#creditos').val(archivo.creditos || '');
-  $('#imagen').val(archivo.imagen || '');
+  $('#imagenData').val(archivo.imagen || '');
+  $('#imagenFile').val('');
+  $('#imagen').val('');
   $('#motivos').val((archivo.motivos||[]).join(','));
   $('#emociones').val((archivo.emociones||[]).join(','));
   $('#lugares').val((archivo.lugares||[]).join(','));
@@ -211,14 +247,18 @@ window.editarArchivo = function(id) {
 };
 function guardarArchivo() {
   const id = $('#archivoId').val() || Date.now().toString();
+  // Usa datos base64 si existen, si no, el campo antiguo (por compatibilidad)
+  const audio = $('#audioData').val() || $('#audio').val();
+  const imagen = $('#imagenData').val() || $('#imagen').val();
+
   const archivo = {
     id,
     titulo: $('#titulo').val(),
     letra: $('#letra').val(),
-    audio: $('#audio').val(),
+    audio: audio,
     interprete: $('#interprete').val(),
     creditos: $('#creditos').val(),
-    imagen: $('#imagen').val(),
+    imagen: imagen,
     motivos: $('#motivos').val().split(',').map(x=>x.trim()).filter(Boolean),
     emociones: $('#emociones').val().split(',').map(x=>x.trim()).filter(Boolean),
     lugares: $('#lugares').val().split(',').map(x=>x.trim()).filter(Boolean)

@@ -66,8 +66,11 @@
               <textarea class="form-control" id="letra" required rows="2"></textarea>
             </div>
             <div class="mb-2">
-              <label class="form-label">Audio (URL o nombre)</label>
-              <input type="text" class="form-control" id="audio" required>
+              <label class="form-label">Audio (sube un archivo MP3, WAV, etc)</label>
+              <input type="file" class="form-control" id="audioFile" accept="audio/*">
+              <input type="hidden" id="audioData">
+              <!-- Fallback por si quieres mantener URL manual -->
+              <input type="text" class="form-control mt-1" id="audio" placeholder="O pega URL de audio (opcional)">
             </div>
             <div class="mb-2">
               <label class="form-label">Intérprete</label>
@@ -78,8 +81,11 @@
               <input type="text" class="form-control" id="creditos">
             </div>
             <div class="mb-2">
-              <label class="form-label">Imagen de portada (URL)</label>
-              <input type="text" class="form-control" id="imagen">
+              <label class="form-label">Imagen de portada (opcional, JPG/PNG)</label>
+              <input type="file" class="form-control" id="imagenFile" accept="image/*">
+              <input type="hidden" id="imagenData">
+              <!-- Fallback por si quieres mantener URL manual -->
+              <input type="text" class="form-control mt-1" id="imagen" placeholder="O pega URL de imagen (opcional)">
             </div>
 
             <!-- Categorías -->
