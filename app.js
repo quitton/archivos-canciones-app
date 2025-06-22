@@ -6,18 +6,15 @@ const estados = [
   { key: 'florecido', label: 'Florecido', color: 'danger' }
 ];
 
-// Grupos de categorías iniciales
 let categoriasBase = {
   motivos: ["Amor", "Fiesta", "Despedida"],
   emociones: ["Tristeza", "Alegría", "Nostalgia"],
   lugares: ["Playa", "Ciudad", "Montaña"]
 };
 
-// --- LocalStorage keys ---
 const LS_ARCHIVOS = "archivosCanciones";
 const LS_CATEGORIAS = "categoriasCanciones";
 
-// --- Utilidades almacenamiento ---
 function loadArchivos() {
   return JSON.parse(localStorage.getItem(LS_ARCHIVOS) || "[]");
 }
@@ -31,16 +28,10 @@ function saveCategorias(obj) {
   localStorage.setItem(LS_CATEGORIAS, JSON.stringify(obj));
 }
 
-// --- Estado calculado según reglas ---
 function calcularEstado(archivo) {
-  // Germinando: Solo necesita título
   if (!archivo.titulo) return null;
-
-  // Brotando: título + letra y audio
   if (archivo.letra && archivo.audio) {
-    // Enraizado: además tiene intérprete y créditos
     if (archivo.interprete && archivo.creditos) {
-      // Florecido: además tiene imagen y al menos una categoría en cada grupo
       if (
         archivo.imagen &&
         (archivo.motivos && archivo.motivos.length) &&
@@ -56,7 +47,6 @@ function calcularEstado(archivo) {
   return 'germinando';
 }
 
-// --- UI Render ---
 function renderEstadosResumen() {
   const archivos = loadArchivos();
   let html = '';
@@ -82,7 +72,6 @@ function renderCategoriasResumen() {
   Object.entries(categorias).forEach(([grupo, arr]) => {
     html += `<h6 class="mt-2 text-muted">${grupo.charAt(0).toUpperCase() + grupo.slice(1)}</h6><div class="d-flex flex-wrap mb-2">`;
     arr.forEach(cat => {
-      // Contar archivos que tengan esta categoria en este grupo
       const count = archivos.filter(a => Array.isArray(a[grupo]) && a[grupo].includes(cat)).length;
       html += `
         <div class="card card-categoria me-1 mb-1 border-info" style="cursor:pointer;" onclick="filtrarPorCategoria('${grupo}','${cat}')">
@@ -133,7 +122,6 @@ function renderListado(archivos) {
   });
   $("#listadoArchivos").html(html);
 }
-// --- Filtros ---
 window.filtrarPorEstado = function(estadoKey) {
   const archivos = loadArchivos().filter(a => calcularEstado(a) === estadoKey);
   renderListado(archivos);
@@ -142,7 +130,6 @@ window.filtrarPorCategoria = function(grupo, categoria) {
   const archivos = loadArchivos().filter(a => Array.isArray(a[grupo]) && a[grupo].includes(categoria));
   renderListado(archivos);
 };
-// --- Modal para agregar o editar ---
 let archivoModal = null;
 let sugerirModal = null;
 let detalleAudioModal = null;
@@ -150,20 +137,16 @@ $(document).ready(function(){
   archivoModal = new bootstrap.Modal(document.getElementById('archivoModal'));
   sugerirModal = new bootstrap.Modal(document.getElementById('sugerirModal'));
   detalleAudioModal = new bootstrap.Modal(document.getElementById('detalleAudioModal'));
-  // Inicializar resumen
   renderEstadosResumen();
   renderCategoriasResumen();
   renderListado(loadArchivos());
-  // Tabs: limpiar listado
   $('#tabEstados').on('click', ()=>renderListado([]));
   $('#tabCategorias').on('click', ()=>renderListado([]));
-  // Botón agregar archivo
   $('#btnAddFile').on('click', function() {
     limpiarFormulario();
     $('#archivoModalTitle').text("Nuevo Archivo");
     archivoModal.show();
   });
-  // Modal submit
   $('#archivoForm').on('submit', function(e){
     e.preventDefault();
     guardarArchivo();
@@ -172,20 +155,16 @@ $(document).ready(function(){
     renderCategoriasResumen();
     renderListado(loadArchivos());
   });
-  // Botón sugerir
   $('#btnSugerir').on('click', function(){
     $('#nombreCategoria').val('');
     sugerirModal.show();
   });
-  // Modal sugerir submit
   $('#sugerirForm').on('submit', function(e){
     e.preventDefault();
     sugerirCategoria();
     sugerirModal.hide();
     renderCategoriasResumen();
   });
-
-  // Manejo de archivo de audio
   $('#audioFile').on('change', function(e){
     const file = e.target.files[0];
     if (file) {
@@ -204,7 +183,6 @@ $(document).ready(function(){
       $('#audioData').removeData('fileInfo');
     }
   });
-  // Manejo de archivo de imagen
   $('#imagenFile').on('change', function(e){
     const file = e.target.files[0];
     if (file) {
@@ -218,7 +196,6 @@ $(document).ready(function(){
     }
   });
 });
-// --- Formulario ---
 function limpiarFormulario() {
   $('#archivoId').val('');
   $('#titulo').val('');
@@ -265,9 +242,16 @@ function guardarArchivo() {
   const emociones = $('#emociones').val().split(',').map(x=>x.trim()).filter(Boolean);
   const lugares = $('#lugares').val().split(',').map(x=>x.trim()).filter(Boolean);
 
+  // Solo título es obligatorio
+  const titulo = $('#titulo').val().trim();
+  if (!titulo) {
+    alert("El título es obligatorio.");
+    return;
+  }
+
   const archivo = {
     id,
-    titulo: $('#titulo').val(),
+    titulo: titulo,
     letra: $('#letra').val(),
     audio: audio,
     interprete: $('#interprete').val(),
@@ -278,10 +262,15 @@ function guardarArchivo() {
     lugares: lugares,
     audioFileInfo: audioFileInfo,
   };
+
   let archivos = loadArchivos();
   const idx = archivos.findIndex(a => a.id === id);
-  if (idx >= 0) archivos[idx] = archivo;
-  else archivos.push(archivo);
+
+  if (idx >= 0) {
+    archivos[idx] = archivo;
+  } else {
+    archivos.push(archivo);
+  }
   saveArchivos(archivos);
 }
 function sugerirCategoria() {
@@ -294,12 +283,9 @@ function sugerirCategoria() {
     saveCategorias(categorias);
   }
 }
-
-// --- Mostrar detalle del archivo (incluyendo metadata de audio) ---
 window.verDetalleArchivo = function(id) {
   const archivo = loadArchivos().find(a => a.id === id);
   if (!archivo) return;
-
   let audioMetaHTML = '';
   if (archivo.audioFileInfo && archivo.audioFileInfo.name) {
     audioMetaHTML = `
@@ -311,11 +297,9 @@ window.verDetalleArchivo = function(id) {
   } else {
     audioMetaHTML = `<li><b>Origen:</b> ${archivo.audio ? "URL/Base64" : "No especificado"}</li>`;
   }
-
   function badgeList(lista, color) {
     return (Array.isArray(lista) ? lista : []).map(c=>`<span class="badge bg-${color} me-1">${c}</span>`).join('');
   }
-
   const body = `
     <div class="row">
       <div class="col-md-5 mb-2">
@@ -342,7 +326,6 @@ window.verDetalleArchivo = function(id) {
   `;
   $('#detalleAudioBody').html(body);
   detalleAudioModal.show();
-
   if (archivo.audioFileInfo && archivo.audioFileInfo.name && archivo.audio) {
     const audioElem = document.getElementById('audioDetalle');
     audioElem.onloadedmetadata = function() {
@@ -355,7 +338,6 @@ window.verDetalleArchivo = function(id) {
     }
   }
 }
-
 (function initDemoData(){
   if (!localStorage.getItem(LS_ARCHIVOS)) {
     saveArchivos([
@@ -371,7 +353,6 @@ window.verDetalleArchivo = function(id) {
     saveCategorias(categoriasBase);
   }
 })();
-// Hacer que listado se limpie al cambiar de tab
 $('#navTabs a').on('shown.bs.tab', function(e){
   renderListado([]);
 });
