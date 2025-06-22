@@ -33,18 +33,20 @@ function saveCategorias(obj) {
 
 // --- Estado calculado según reglas ---
 function calcularEstado(archivo) {
-  // Germinando: titulo, letra, audio y al menos una categoría en cualquier grupo
-  const tieneDatosMinimos = archivo.titulo && archivo.letra && archivo.audio &&
-    (archivo.motivos.length || archivo.emociones.length || archivo.lugares.length);
+  // Germinando: Solo necesita título
+  if (!archivo.titulo) return null;
 
-  if (!tieneDatosMinimos) return null;
-
-  // Brotando: además tiene interprete y creditos
-  if (archivo.interprete && archivo.creditos) {
-    // Enraizado: además tiene imagen
-    if (archivo.imagen) {
-      // Florecido: además tiene al menos una categoría en cada grupo
-      if (archivo.motivos.length && archivo.emociones.length && archivo.lugares.length) {
+  // Brotando: título + letra y audio
+  if (archivo.letra && archivo.audio) {
+    // Enraizado: además tiene intérprete y créditos
+    if (archivo.interprete && archivo.creditos) {
+      // Florecido: además tiene imagen y al menos una categoría en cada grupo
+      if (
+        archivo.imagen &&
+        (archivo.motivos && archivo.motivos.length) &&
+        (archivo.emociones && archivo.emociones.length) &&
+        (archivo.lugares && archivo.lugares.length)
+      ) {
         return 'florecido';
       }
       return 'enraizado';
@@ -115,7 +117,7 @@ function renderListado(archivos) {
             <div class="ms-3 flex-grow-1">
               <h6>${a.titulo}</h6>
               <small class="text-muted">${estLabel}</small>
-              <audio controls src="${a.audio}" style="width:100%;" class="mt-1"></audio>
+              ${a.audio ? `<audio controls src="${a.audio}" style="width:100%;" class="mt-1"></audio>` : ""}
               <div class="mt-2">
                 ${(a.motivos||[]).map(m=>`<span class="badge bg-success me-1">${m}</span>`).join('')}
                 ${(a.emociones||[]).map(e=>`<span class="badge bg-warning text-dark me-1">${e}</span>`).join('')}
@@ -190,7 +192,6 @@ $(document).ready(function(){
       const reader = new FileReader();
       reader.onload = function(evt) {
         $('#audioData').val(evt.target.result);
-        // Guardar metadata básica del archivo
         $('#audioData').data('fileInfo', {
           name: file.name,
           size: file.size,
@@ -240,7 +241,7 @@ window.editarArchivo = function(id) {
   if (!archivo) return;
   $('#archivoId').val(archivo.id);
   $('#titulo').val(archivo.titulo);
-  $('#letra').val(archivo.letra);
+  $('#letra').val(archivo.letra || '');
   $('#audioData').val(archivo.audio || '');
   $('#audioFile').val('');
   $('#audio').val('');
@@ -257,12 +258,9 @@ window.editarArchivo = function(id) {
 };
 function guardarArchivo() {
   const id = $('#archivoId').val() || Date.now().toString();
-  // Obtiene la metadata del archivo si subió uno nuevo
   const audioFileInfo = $('#audioData').data('fileInfo') || {};
   const audio = $('#audioData').val() || $('#audio').val();
   const imagen = $('#imagenData').val() || $('#imagen').val();
-
-  // Procesar categorías, asegurando arrays limpios
   const motivos = $('#motivos').val().split(',').map(x=>x.trim()).filter(Boolean);
   const emociones = $('#emociones').val().split(',').map(x=>x.trim()).filter(Boolean);
   const lugares = $('#lugares').val().split(',').map(x=>x.trim()).filter(Boolean);
@@ -278,7 +276,6 @@ function guardarArchivo() {
     motivos: motivos,
     emociones: emociones,
     lugares: lugares,
-    // Guardar metadata del archivo de audio si existe
     audioFileInfo: audioFileInfo,
   };
   let archivos = loadArchivos();
@@ -303,7 +300,6 @@ window.verDetalleArchivo = function(id) {
   const archivo = loadArchivos().find(a => a.id === id);
   if (!archivo) return;
 
-  // Metadata del archivo de audio
   let audioMetaHTML = '';
   if (archivo.audioFileInfo && archivo.audioFileInfo.name) {
     audioMetaHTML = `
@@ -316,7 +312,6 @@ window.verDetalleArchivo = function(id) {
     audioMetaHTML = `<li><b>Origen:</b> ${archivo.audio ? "URL/Base64" : "No especificado"}</li>`;
   }
 
-  // Categorías
   function badgeList(lista, color) {
     return (Array.isArray(lista) ? lista : []).map(c=>`<span class="badge bg-${color} me-1">${c}</span>`).join('');
   }
@@ -339,7 +334,7 @@ window.verDetalleArchivo = function(id) {
       </div>
       <div class="col-md-7">
         <b>Audio:</b>
-        <audio id="audioDetalle" controls src="${archivo.audio}" style="width:100%;"></audio>
+        ${archivo.audio ? `<audio id="audioDetalle" controls src="${archivo.audio}" style="width:100%;"></audio>` : "<span class='text-muted'>No especificado</span>"}
         <ul class="mt-2">${audioMetaHTML}</ul>
         ${archivo.imagen ? `<b>Imagen de portada:</b><br><img src="${archivo.imagen}" class="img-fluid rounded" style="max-width:200px;">` : ""}
       </div>
@@ -348,30 +343,27 @@ window.verDetalleArchivo = function(id) {
   $('#detalleAudioBody').html(body);
   detalleAudioModal.show();
 
-  // Si hay audioFileInfo y duración, obtenerla del audio
-  if (archivo.audioFileInfo && archivo.audioFileInfo.name) {
+  if (archivo.audioFileInfo && archivo.audioFileInfo.name && archivo.audio) {
     const audioElem = document.getElementById('audioDetalle');
     audioElem.onloadedmetadata = function() {
       const segundos = Math.floor(audioElem.duration % 60).toString().padStart(2,'0');
       const minutos = Math.floor(audioElem.duration / 60);
       $('#duracionAudioDetalle span').text(`${minutos}:${segundos} minutos`);
     }
-    // Si ya está cargado
     if (audioElem.readyState >= 1) {
       audioElem.onloadedmetadata();
     }
   }
 }
 
-// --- Inicializar datos demo si es la primera vez ---
 (function initDemoData(){
   if (!localStorage.getItem(LS_ARCHIVOS)) {
     saveArchivos([
       {
-        id: "1", titulo: "La playa", letra: "En la playa todo es mejor...", audio: "", interprete: "", creditos: "", imagen: "", motivos:["Amor"], emociones:[], lugares:["Playa"], audioFileInfo:{}
+        id: "1", titulo: "La playa", letra: "", audio: "", interprete: "", creditos: "", imagen: "", motivos:[], emociones:[], lugares:[], audioFileInfo:{}
       },
       {
-        id: "2", titulo: "Ciudad de luces", letra: "Luces que no se apagan...", audio: "", interprete: "Ana", creditos: "Pedro", imagen: "https://picsum.photos/seed/ciudad/60", motivos:["Despedida"], emociones:["Nostalgia"], lugares:["Ciudad"], audioFileInfo:{}
+        id: "2", titulo: "Ciudad de luces", letra: "", audio: "", interprete: "", creditos: "", imagen: "https://picsum.photos/seed/ciudad/60", motivos:[], emociones:[], lugares:[], audioFileInfo:{}
       }
     ]);
   }
