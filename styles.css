@@ -1,0 +1,26 @@
+body {
+  background: #f3f6fa;
+}
+#btnSugerir {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  z-index: 999;
+  width: 56px;
+  height: 56px;
+  font-size: 1.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-estado {
+  min-width: 120px;
+}
+.card-categoria {
+  min-width: 130px;
+}
+@media (max-width: 576px) {
+  .modal-dialog {
+    margin: 1rem;
+  }
+}
