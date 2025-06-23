@@ -6,6 +6,7 @@ const estados = [
   { key: 'florecido', label: 'Florecido', color: 'danger' }
 ];
 
+// Grupos de categorías iniciales
 let categoriasBase = {
   motivos: ["Amor", "Fiesta", "Despedida"],
   emociones: ["Tristeza", "Alegría", "Nostalgia"],
@@ -47,14 +48,15 @@ function calcularEstado(archivo) {
   return 'germinando';
 }
 
+// --- UI Render ---
 function renderEstadosResumen() {
   const archivos = loadArchivos();
   let html = '';
   estados.forEach(est => {
     const count = archivos.filter(a => calcularEstado(a) === est.key).length;
     html += `
-      <div class="col-6">
-        <div class="card card-estado border-${est.color} text-center" style="cursor:pointer;" onclick="filtrarPorEstado('${est.key}')">
+      <div class="col-6 col-md-3">
+        <div class="card card-estado border-${est.color} text-center mb-2" style="cursor:pointer;" onclick="filtrarPorEstado('${est.key}')">
           <div class="card-body py-2">
             <h6 class="card-title text-${est.color}">${est.label}</h6>
             <span class="badge bg-${est.color}">${count}</span>
@@ -70,7 +72,7 @@ function renderCategoriasResumen() {
   const categorias = loadCategorias();
   let html = '';
   Object.entries(categorias).forEach(([grupo, arr]) => {
-    html += `<h6 class="mt-2 text-muted">${grupo.charAt(0).toUpperCase() + grupo.slice(1)}</h6><div class="d-flex flex-wrap mb-2">`;
+    html += `<h6 class="mt-2">${grupo.charAt(0).toUpperCase() + grupo.slice(1)}</h6><div class="d-flex flex-wrap mb-2">`;
     arr.forEach(cat => {
       const count = archivos.filter(a => Array.isArray(a[grupo]) && a[grupo].includes(cat)).length;
       html += `
@@ -140,8 +142,6 @@ $(document).ready(function(){
   renderEstadosResumen();
   renderCategoriasResumen();
   renderListado(loadArchivos());
-  $('#tabEstados').on('click', ()=>renderListado([]));
-  $('#tabCategorias').on('click', ()=>renderListado([]));
   $('#btnAddFile').on('click', function() {
     limpiarFormulario();
     $('#archivoModalTitle').text("Nuevo Archivo");
@@ -168,6 +168,11 @@ $(document).ready(function(){
   $('#audioFile').on('change', function(e){
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 512 * 1024) {
+        alert("El archivo de audio es demasiado grande (máximo 500KB)");
+        $('#audioFile').val('');
+        return;
+      }
       const reader = new FileReader();
       reader.onload = function(evt) {
         $('#audioData').val(evt.target.result);
@@ -186,6 +191,11 @@ $(document).ready(function(){
   $('#imagenFile').on('change', function(e){
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 512 * 1024) {
+        alert("La imagen es demasiado grande (máximo 500KB)");
+        $('#imagenFile').val('');
+        return;
+      }
       const reader = new FileReader();
       reader.onload = function(evt) {
         $('#imagenData').val(evt.target.result);
@@ -305,7 +315,7 @@ window.verDetalleArchivo = function(id) {
       <div class="col-md-5 mb-2">
         <b>Título:</b> ${archivo.titulo || ""}
         <hr class="my-1">
-        <b>Letra:</b><br><pre class="bg-light p-2 rounded">${archivo.letra || ""}</pre>
+        <b>Letra:</b><br><pre class="bg-light p-2 rounded" style="background:#232323!important;color:#fff!important;">${archivo.letra || ""}</pre>
         <b>Intérprete:</b> ${archivo.interprete || "<span class='text-muted'>No especificado</span>"}
         <br>
         <b>Créditos:</b> ${archivo.creditos || "<span class='text-muted'>No especificado</span>"}
@@ -353,6 +363,3 @@ window.verDetalleArchivo = function(id) {
     saveCategorias(categoriasBase);
   }
 })();
-$('#navTabs a').on('shown.bs.tab', function(e){
-  renderListado([]);
-});
