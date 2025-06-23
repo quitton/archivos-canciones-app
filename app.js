@@ -7,6 +7,31 @@ function saveArchivos(arr) {
   localStorage.setItem(LS_ARCHIVOS, JSON.stringify(arr));
 }
 
+// --- Estado de la canción ---
+const estados = [
+  { key: 'germinando', label: 'Germinando', color: 'success' },
+  { key: 'brotando', label: 'Brotando', color: 'primary' },
+  { key: 'enraizado', label: 'Enraizado', color: 'warning' },
+  { key: 'florecido', label: 'Florecido', color: 'danger' }
+];
+function calcularEstadoCancion(c) {
+  if (!c.titulo) return null;
+  if (c.letra && c.audio) {
+    if (c.creditos) {
+      if (
+        (c.motivos && c.motivos.length) &&
+        (c.emociones && c.emociones.length) &&
+        (c.lugares && c.lugares.length)
+      ) {
+        return 'florecido';
+      }
+      return 'enraizado';
+    }
+    return 'brotando';
+  }
+  return 'germinando';
+}
+
 // ---- Vistas principales ----
 function renderVistaArchivos() {
   const archivos = loadArchivos();
@@ -39,19 +64,95 @@ function renderVistaArchivos() {
 window.abrirArchivo = function(id) {
   const archivo = loadArchivos().find(a=>a.id===id);
   if (!archivo) return;
-  renderVistaArchivoDetalle(archivo);
+  // Por defecto sin filtro
+  renderVistaArchivoDetalle(archivo, {});
 }
-function renderVistaArchivoDetalle(archivo) {
+function renderVistaArchivoDetalle(archivo, filtro = {}) {
+  // --- Filtros de estado ---
+  let filtrosEstado = `
+    <div class="mb-2">
+      <b>Filtrar por Estado:</b>
+      <span class="badge bg-light text-dark" style="cursor:pointer" onclick="filtrarCanciones('${archivo.id}', 'estado', '')">Todos</span>
+      ${estados.map(est=>`
+        <span class="badge bg-${est.color}" style="cursor:pointer" onclick="filtrarCanciones('${archivo.id}', 'estado', '${est.key}')">${est.label}</span>
+      `).join(' ')}
+    </div>
+  `;
+  // --- Filtros por categorías (solo las presentes en las canciones) ---
+  const canciones = archivo.canciones || [];
+  let motivosSet = new Set(), emocionesSet = new Set(), lugaresSet = new Set();
+  canciones.forEach(c=>{
+    (c.motivos||[]).forEach(m=>motivosSet.add(m));
+    (c.emociones||[]).forEach(e=>emocionesSet.add(e));
+    (c.lugares||[]).forEach(l=>lugaresSet.add(l));
+  });
+  let filtrosCategorias = `<div class="mb-2"><b>Filtrar por Categoría:</b><br>`;
+  // Motivos
+  if (motivosSet.size) {
+    filtrosCategorias += `<span class="me-2">Motivos:</span>`;
+    motivosSet.forEach(m=>{
+      filtrosCategorias += `<span class="badge bg-success me-1" style="cursor:pointer" onclick="filtrarCanciones('${archivo.id}', 'motivos', '${m}')">${m}</span>`;
+    });
+    filtrosCategorias += `<br>`;
+  }
+  // Emociones
+  if (emocionesSet.size) {
+    filtrosCategorias += `<span class="me-2">Emociones:</span>`;
+    emocionesSet.forEach(e=>{
+      filtrosCategorias += `<span class="badge bg-warning text-dark me-1" style="cursor:pointer" onclick="filtrarCanciones('${archivo.id}', 'emociones', '${e}')">${e}</span>`;
+    });
+    filtrosCategorias += `<br>`;
+  }
+  // Lugares
+  if (lugaresSet.size) {
+    filtrosCategorias += `<span class="me-2">Lugares:</span>`;
+    lugaresSet.forEach(l=>{
+      filtrosCategorias += `<span class="badge bg-primary me-1" style="cursor:pointer" onclick="filtrarCanciones('${archivo.id}', 'lugares', '${l}')">${l}</span>`;
+    });
+    filtrosCategorias += `<br>`;
+  }
+  filtrosCategorias += `<span class="badge bg-light text-dark mt-2" style="cursor:pointer" onclick="filtrarCanciones('${archivo.id}', '', '')">Quitar filtros</span>`;
+  filtrosCategorias += `</div>`;
+
+  // --- Aplicar filtro ---
+  let cancionesFiltradas = canciones;
+  if (filtro && filtro.tipo && filtro.valor) {
+    if (filtro.tipo === 'estado') {
+      cancionesFiltradas = cancionesFiltradas.filter(c=>calcularEstadoCancion(c) === filtro.valor);
+    } else if (['motivos','emociones','lugares'].includes(filtro.tipo)) {
+      cancionesFiltradas = cancionesFiltradas.filter(c=>(c[filtro.tipo]||[]).includes(filtro.valor));
+    }
+  }
+
+  let filtroActivoHTML = "";
+  if (filtro && filtro.tipo && filtro.valor) {
+    let label = '';
+    if (filtro.tipo === 'estado') {
+      const est = estados.find(e=>e.key===filtro.valor);
+      label = est ? est.label : filtro.valor;
+    } else {
+      label = filtro.valor;
+    }
+    filtroActivoHTML = `<div class="mb-2"><span class="badge bg-info">Filtro activo: ${label}</span> <button class="btn btn-sm btn-light" onclick="filtrarCanciones('${archivo.id}', '', '')">Quitar filtro</button></div>`;
+  }
+
   let html = `
     <button class="btn btn-link mb-2 text-info" onclick="renderVistaArchivos()"><i class="bi bi-arrow-left"></i> Volver</button>
     <h4>${archivo.titulo}</h4>
     <div class="mb-2">${archivo.descripcion||""}</div>
+    ${filtrosEstado}
+    ${filtrosCategorias}
+    ${filtroActivoHTML}
     <button class="btn btn-success mb-3" onclick="abrirModalCancion('${archivo.id}')">+ Agregar Canción</button>
     <div>
-      ${(archivo.canciones||[]).map(c=>`
+      ${cancionesFiltradas.length === 0 ? `<div class="alert alert-info">No hay canciones para este filtro.</div>` : ""}
+      ${cancionesFiltradas.map(c=>{
+        const estKey = calcularEstadoCancion(c);
+        const est = estados.find(e=>e.key===estKey);
+        return `
         <div class="card mb-2">
           <div class="card-body">
-            <h5>${c.titulo}</h5>
+            <h5>${c.titulo} ${est ? `<span class="badge bg-${est.color} ms-2">${est.label}</span>` : ""}</h5>
             ${c.audio?`<audio controls src="${c.audio}" style="width:100%;"></audio>`:""}
             <div class="mt-2">
               <button class="btn btn-sm btn-info me-2" onclick="verDetalleCancion('${archivo.id}','${c.id}')"><i class="bi bi-info-circle"></i> Detalle</button>
@@ -59,12 +160,22 @@ function renderVistaArchivoDetalle(archivo) {
             </div>
           </div>
         </div>
-      `).join('')}
+      `}).join('')}
     </div>
   `;
   $("#vistaArchivoDetalle").html(html).show();
   $("#vistaArchivos").hide();
   window._archivoAbiertoId = archivo.id;
+}
+
+window.filtrarCanciones = function(archivoId, tipo, valor) {
+  const archivo = loadArchivos().find(a=>a.id===archivoId);
+  if (!archivo) return;
+  if (!tipo || !valor) {
+    renderVistaArchivoDetalle(archivo, {});
+  } else {
+    renderVistaArchivoDetalle(archivo, {tipo, valor});
+  }
 }
 
 // ---- Modal: Crear/Editar Archivo ----
@@ -87,7 +198,6 @@ $(document).ready(function(){
   });
 });
 
-// Limpieza form
 function limpiarArchivoForm() {
   $('#archivoId').val('');
   $('#archivoTitulo').val('');
@@ -143,7 +253,6 @@ function limpiarCancionForm() {
   renderMemoriasLista();
 }
 
-// Imagen/audio file a base64
 $('#cancionAudioFile').on('change', function(e){
   const file = e.target.files[0];
   if (file) {
@@ -161,7 +270,6 @@ $('#cancionAudioFile').on('change', function(e){
     $('#cancionAudioData').val('');
   }
 });
-// ---- Memorias (imágenes) ----
 $('#btnAddMemoria').on('click', function(){
   const fileInput = $('#cancionMemoriaImg')[0];
   const desc = $('#cancionMemoriaDesc').val();
@@ -199,7 +307,6 @@ window.borrarMemoria = function(idx){
   renderMemoriasLista();
 };
 
-// --- Guardar canción ---
 $('#cancionForm').on('submit', function(e){
   e.preventDefault();
   const archivoId = $(this).data("archivoId");
@@ -227,7 +334,6 @@ $('#cancionForm').on('submit', function(e){
   renderVistaArchivoDetalle(arch);
 });
 
-// --- Editar canción ---
 window.editarCancion = function(archivoId, cancionId) {
   let archivos = loadArchivos();
   let arch = archivos.find(a=>a.id===archivoId);
@@ -252,7 +358,6 @@ window.editarCancion = function(archivoId, cancionId) {
   cancionModal.show();
 };
 
-// --- Detalle de canción ---
 let detalleCancionModal = null;
 window.verDetalleCancion = function(archivoId, cancionId) {
   let archivos = loadArchivos();
@@ -260,8 +365,10 @@ window.verDetalleCancion = function(archivoId, cancionId) {
   if (!arch) return;
   let c = arch.canciones.find(c=>c.id===cancionId);
   if (!c) return;
+  let estKey = calcularEstadoCancion(c);
+  let est = estados.find(e=>e.key===estKey);
   let html = `
-    <h5>${c.titulo}</h5>
+    <h5>${c.titulo} ${est?`<span class="badge bg-${est.color} ms-2">${est.label}</span>`:""}</h5>
     ${c.audio?`<audio controls src="${c.audio}" style="width:100%;"></audio>`:""}
     <pre class="bg-dark mt-2">${c.letra||""}</pre>
     <div class="mt-2"><b>Motivos:</b> ${(c.motivos||[]).map(m=>`<span class="badge bg-success me-1">${m}</span>`).join('')}</div>
@@ -284,7 +391,6 @@ window.verDetalleCancion = function(archivoId, cancionId) {
   detalleCancionModal.show();
 };
 
-// Inicial demo
 (function initDemoData(){
   if (!localStorage.getItem(LS_ARCHIVOS)) {
     saveArchivos([
