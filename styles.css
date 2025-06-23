@@ -22,16 +22,10 @@ h1, h2, h3, h4, h5, h6, label, .form-label, .text-muted {
   color: #fff !important;
   border-color: #888 !important;
 }
-.card, .card-body, .card-categoria, .card-estado {
+.card, .card-body {
   background: #181818 !important;
   color: #fff !important;
   border-color: #333 !important;
-}
-.card-estado, .card-categoria {
-  min-width: 120px;
-}
-.card-categoria {
-  min-width: 130px;
 }
 .badge {
   color: #fff !important;
@@ -53,18 +47,6 @@ h1, h2, h3, h4, h5, h6, label, .form-label, .text-muted {
 pre {
   color: #fff;
   background: #232323;
-}
-#btnSugerir {
-  position: fixed;
-  bottom: 24px;
-  right: 20px;
-  z-index: 999;
-  width: 56px;
-  height: 56px;
-  font-size: 1.8rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 @media (max-width: 576px) {
   .modal-dialog {

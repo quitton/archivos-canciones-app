@@ -1,149 +1,81 @@
-// --- Estados y reglas ---
-const estados = [
-  { key: 'germinando', label: 'Germinando', color: 'success' },
-  { key: 'brotando', label: 'Brotando', color: 'primary' },
-  { key: 'enraizado', label: 'Enraizado', color: 'warning' },
-  { key: 'florecido', label: 'Florecido', color: 'danger' }
-];
-
-// Grupos de categorías iniciales
-let categoriasBase = {
-  motivos: ["Amor", "Fiesta", "Despedida"],
-  emociones: ["Tristeza", "Alegría", "Nostalgia"],
-  lugares: ["Playa", "Ciudad", "Montaña"]
-};
-
-const LS_ARCHIVOS = "archivosCanciones";
-const LS_CATEGORIAS = "categoriasCanciones";
-
+// --- Modelo base ---
+const LS_ARCHIVOS = "archivosColeccion";
 function loadArchivos() {
   return JSON.parse(localStorage.getItem(LS_ARCHIVOS) || "[]");
 }
 function saveArchivos(arr) {
   localStorage.setItem(LS_ARCHIVOS, JSON.stringify(arr));
 }
-function loadCategorias() {
-  return JSON.parse(localStorage.getItem(LS_CATEGORIAS) || JSON.stringify(categoriasBase));
+
+// ---- Vistas principales ----
+function renderVistaArchivos() {
+  const archivos = loadArchivos();
+  let html = `
+    <h4>Archivos</h4>
+    <div class="row g-2">
+      ${archivos.map(arch => `
+        <div class="col-12 col-md-6">
+          <div class="card mb-2">
+            <div class="card-body">
+              <h5>${arch.titulo}</h5>
+              <p class="text-muted">${arch.descripcion||""}</p>
+              <span class="badge bg-info mb-2">${arch.canciones?.length||0} canciones</span>
+              <br>
+              <button class="btn btn-sm btn-primary me-2" onclick="abrirArchivo('${arch.id}')">
+                Ver Detalle
+              </button>
+              <button class="btn btn-sm btn-secondary" onclick="editarArchivo('${arch.id}')">
+                Editar
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  $("#vistaArchivos").html(html).show();
+  $("#vistaArchivoDetalle").hide();
 }
-function saveCategorias(obj) {
-  localStorage.setItem(LS_CATEGORIAS, JSON.stringify(obj));
+window.abrirArchivo = function(id) {
+  const archivo = loadArchivos().find(a=>a.id===id);
+  if (!archivo) return;
+  renderVistaArchivoDetalle(archivo);
+}
+function renderVistaArchivoDetalle(archivo) {
+  let html = `
+    <button class="btn btn-link mb-2 text-info" onclick="renderVistaArchivos()"><i class="bi bi-arrow-left"></i> Volver</button>
+    <h4>${archivo.titulo}</h4>
+    <div class="mb-2">${archivo.descripcion||""}</div>
+    <button class="btn btn-success mb-3" onclick="abrirModalCancion('${archivo.id}')">+ Agregar Canción</button>
+    <div>
+      ${(archivo.canciones||[]).map(c=>`
+        <div class="card mb-2">
+          <div class="card-body">
+            <h5>${c.titulo}</h5>
+            ${c.audio?`<audio controls src="${c.audio}" style="width:100%;"></audio>`:""}
+            <div class="mt-2">
+              <button class="btn btn-sm btn-info me-2" onclick="verDetalleCancion('${archivo.id}','${c.id}')"><i class="bi bi-info-circle"></i> Detalle</button>
+              <button class="btn btn-sm btn-secondary" onclick="editarCancion('${archivo.id}','${c.id}')"><i class="bi bi-pencil"></i> Editar</button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  $("#vistaArchivoDetalle").html(html).show();
+  $("#vistaArchivos").hide();
+  window._archivoAbiertoId = archivo.id;
 }
 
-function calcularEstado(archivo) {
-  if (!archivo.titulo) return null;
-  if (archivo.letra && archivo.audio) {
-    if (archivo.interprete && archivo.creditos) {
-      if (
-        archivo.imagen &&
-        (archivo.motivos && archivo.motivos.length) &&
-        (archivo.emociones && archivo.emociones.length) &&
-        (archivo.lugares && archivo.lugares.length)
-      ) {
-        return 'florecido';
-      }
-      return 'enraizado';
-    }
-    return 'brotando';
-  }
-  return 'germinando';
-}
-
-// --- UI Render ---
-function renderEstadosResumen() {
-  const archivos = loadArchivos();
-  let html = '';
-  estados.forEach(est => {
-    const count = archivos.filter(a => calcularEstado(a) === est.key).length;
-    html += `
-      <div class="col-6 col-md-3">
-        <div class="card card-estado border-${est.color} text-center mb-2" style="cursor:pointer;" onclick="filtrarPorEstado('${est.key}')">
-          <div class="card-body py-2">
-            <h6 class="card-title text-${est.color}">${est.label}</h6>
-            <span class="badge bg-${est.color}">${count}</span>
-          </div>
-        </div>
-      </div>
-    `;
-  });
-  $("#estadosResumen").html(html);
-}
-function renderCategoriasResumen() {
-  const archivos = loadArchivos();
-  const categorias = loadCategorias();
-  let html = '';
-  Object.entries(categorias).forEach(([grupo, arr]) => {
-    html += `<h6 class="mt-2">${grupo.charAt(0).toUpperCase() + grupo.slice(1)}</h6><div class="d-flex flex-wrap mb-2">`;
-    arr.forEach(cat => {
-      const count = archivos.filter(a => Array.isArray(a[grupo]) && a[grupo].includes(cat)).length;
-      html += `
-        <div class="card card-categoria me-1 mb-1 border-info" style="cursor:pointer;" onclick="filtrarPorCategoria('${grupo}','${cat}')">
-          <div class="card-body p-2 text-center">
-            <span class="badge bg-info">${cat}</span>
-            <span class="ms-2 text-secondary">${count}</span>
-          </div>
-        </div>
-      `;
-    });
-    html += "</div>";
-  });
-  $("#categoriasResumen").html(html);
-}
-function renderListado(archivos) {
-  if (!archivos.length) {
-    $("#listadoArchivos").html(`<div class="alert alert-info">No hay archivos en esta vista</div>`);
-    return;
-  }
-  let html = '';
-  archivos.forEach(a => {
-    const estado = calcularEstado(a);
-    const estLabel = estados.find(e => e.key === estado)?.label || "Sin estado";
-    const estColor = estados.find(e => e.key === estado)?.color || "secondary";
-    html += `
-      <div class="card mb-2">
-        <div class="card-body">
-          <div class="d-flex align-items-center">
-            <div style="min-width:60px;min-height:60px;">
-              ${a.imagen ? `<img src="${a.imagen}" class="img-fluid rounded" style="max-width:60px;max-height:60px;">` : `<i class="bi bi-music-note-list text-${estColor}" style="font-size:2.4rem;"></i>`}
-            </div>
-            <div class="ms-3 flex-grow-1">
-              <h6>${a.titulo}</h6>
-              <small class="text-muted">${estLabel}</small>
-              ${a.audio ? `<audio controls src="${a.audio}" style="width:100%;" class="mt-1"></audio>` : ""}
-              <div class="mt-2">
-                ${(a.motivos||[]).map(m=>`<span class="badge bg-success me-1">${m}</span>`).join('')}
-                ${(a.emociones||[]).map(e=>`<span class="badge bg-warning text-dark me-1">${e}</span>`).join('')}
-                ${(a.lugares||[]).map(l=>`<span class="badge bg-primary me-1">${l}</span>`).join('')}
-              </div>
-            </div>
-            <button class="btn btn-outline-secondary btn-sm ms-2" onclick="editarArchivo('${a.id}')"><i class="bi bi-pencil"></i></button>
-            <button class="btn btn-outline-info btn-sm ms-2" onclick="verDetalleArchivo('${a.id}')"><i class="bi bi-info-circle"></i></button>
-          </div>
-        </div>
-      </div>
-    `;
-  });
-  $("#listadoArchivos").html(html);
-}
-window.filtrarPorEstado = function(estadoKey) {
-  const archivos = loadArchivos().filter(a => calcularEstado(a) === estadoKey);
-  renderListado(archivos);
-};
-window.filtrarPorCategoria = function(grupo, categoria) {
-  const archivos = loadArchivos().filter(a => Array.isArray(a[grupo]) && a[grupo].includes(categoria));
-  renderListado(archivos);
-};
+// ---- Modal: Crear/Editar Archivo ----
 let archivoModal = null;
-let sugerirModal = null;
-let detalleAudioModal = null;
 $(document).ready(function(){
   archivoModal = new bootstrap.Modal(document.getElementById('archivoModal'));
-  sugerirModal = new bootstrap.Modal(document.getElementById('sugerirModal'));
-  detalleAudioModal = new bootstrap.Modal(document.getElementById('detalleAudioModal'));
-  renderEstadosResumen();
-  renderCategoriasResumen();
-  renderListado(loadArchivos());
-  $('#btnAddFile').on('click', function() {
-    limpiarFormulario();
+  cancionModal = new bootstrap.Modal(document.getElementById('cancionModal'));
+  detalleCancionModal = new bootstrap.Modal(document.getElementById('detalleCancionModal'));
+  renderVistaArchivos();
+  $('#btnAddArchivo').on('click', function() {
+    limpiarArchivoForm();
     $('#archivoModalTitle').text("Nuevo Archivo");
     archivoModal.show();
   });
@@ -151,215 +83,230 @@ $(document).ready(function(){
     e.preventDefault();
     guardarArchivo();
     archivoModal.hide();
-    renderEstadosResumen();
-    renderCategoriasResumen();
-    renderListado(loadArchivos());
-  });
-  $('#btnSugerir').on('click', function(){
-    $('#nombreCategoria').val('');
-    sugerirModal.show();
-  });
-  $('#sugerirForm').on('submit', function(e){
-    e.preventDefault();
-    sugerirCategoria();
-    sugerirModal.hide();
-    renderCategoriasResumen();
-  });
-  $('#audioFile').on('change', function(e){
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 512 * 1024) {
-        alert("El archivo de audio es demasiado grande (máximo 500KB)");
-        $('#audioFile').val('');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        $('#audioData').val(evt.target.result);
-        $('#audioData').data('fileInfo', {
-          name: file.name,
-          size: file.size,
-          type: file.type,
-        });
-      }
-      reader.readAsDataURL(file);
-    } else {
-      $('#audioData').val('');
-      $('#audioData').removeData('fileInfo');
-    }
-  });
-  $('#imagenFile').on('change', function(e){
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 512 * 1024) {
-        alert("La imagen es demasiado grande (máximo 500KB)");
-        $('#imagenFile').val('');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        $('#imagenData').val(evt.target.result);
-      }
-      reader.readAsDataURL(file);
-    } else {
-      $('#imagenData').val('');
-    }
+    renderVistaArchivos();
   });
 });
-function limpiarFormulario() {
+
+// Limpieza form
+function limpiarArchivoForm() {
   $('#archivoId').val('');
-  $('#titulo').val('');
-  $('#letra').val('');
-  $('#audioData').val('');
-  $('#audioFile').val('');
-  $('#audio').val('');
-  $('#interprete').val('');
-  $('#creditos').val('');
-  $('#imagenData').val('');
-  $('#imagenFile').val('');
-  $('#imagen').val('');
-  $('#motivos').val('');
-  $('#emociones').val('');
-  $('#lugares').val('');
-  $('#audioData').removeData('fileInfo');
+  $('#archivoTitulo').val('');
+  $('#archivoDescripcion').val('');
 }
 window.editarArchivo = function(id) {
-  const archivo = loadArchivos().find(a => a.id === id);
+  const archivo = loadArchivos().find(a=>a.id===id);
   if (!archivo) return;
   $('#archivoId').val(archivo.id);
-  $('#titulo').val(archivo.titulo);
-  $('#letra').val(archivo.letra || '');
-  $('#audioData').val(archivo.audio || '');
-  $('#audioFile').val('');
-  $('#audio').val('');
-  $('#interprete').val(archivo.interprete || '');
-  $('#creditos').val(archivo.creditos || '');
-  $('#imagenData').val(archivo.imagen || '');
-  $('#imagenFile').val('');
-  $('#imagen').val('');
-  $('#motivos').val(Array.isArray(archivo.motivos) ? archivo.motivos.join(',') : '');
-  $('#emociones').val(Array.isArray(archivo.emociones) ? archivo.emociones.join(',') : '');
-  $('#lugares').val(Array.isArray(archivo.lugares) ? archivo.lugares.join(',') : '');
+  $('#archivoTitulo').val(archivo.titulo);
+  $('#archivoDescripcion').val(archivo.descripcion||"");
   $('#archivoModalTitle').text("Editar Archivo");
   archivoModal.show();
 };
 function guardarArchivo() {
   const id = $('#archivoId').val() || Date.now().toString();
-  const audioFileInfo = $('#audioData').data('fileInfo') || {};
-  const audio = $('#audioData').val() || $('#audio').val();
-  const imagen = $('#imagenData').val() || $('#imagen').val();
-  const motivos = $('#motivos').val().split(',').map(x=>x.trim()).filter(Boolean);
-  const emociones = $('#emociones').val().split(',').map(x=>x.trim()).filter(Boolean);
-  const lugares = $('#lugares').val().split(',').map(x=>x.trim()).filter(Boolean);
-
-  // Solo título es obligatorio
-  const titulo = $('#titulo').val().trim();
-  if (!titulo) {
-    alert("El título es obligatorio.");
-    return;
-  }
-
-  const archivo = {
-    id,
-    titulo: titulo,
-    letra: $('#letra').val(),
-    audio: audio,
-    interprete: $('#interprete').val(),
-    creditos: $('#creditos').val(),
-    imagen: imagen,
-    motivos: motivos,
-    emociones: emociones,
-    lugares: lugares,
-    audioFileInfo: audioFileInfo,
-  };
-
+  const titulo = $('#archivoTitulo').val().trim();
+  if (!titulo) return alert("El título es obligatorio");
   let archivos = loadArchivos();
-  const idx = archivos.findIndex(a => a.id === id);
-
-  if (idx >= 0) {
-    archivos[idx] = archivo;
-  } else {
-    archivos.push(archivo);
-  }
+  let arch = archivos.find(a=>a.id===id) || {id, canciones:[]};
+  arch.titulo = titulo;
+  arch.descripcion = $('#archivoDescripcion').val();
+  const idx = archivos.findIndex(a=>a.id===id);
+  if(idx>=0) archivos[idx]=arch;
+  else archivos.push(arch);
   saveArchivos(archivos);
 }
-function sugerirCategoria() {
-  const grupo = $('#grupoCategoria').val();
-  const nombre = $('#nombreCategoria').val().trim();
-  if (!nombre) return;
-  let categorias = loadCategorias();
-  if (!categorias[grupo].includes(nombre)) {
-    categorias[grupo].push(nombre);
-    saveCategorias(categorias);
-  }
+
+// ---- Modal: Crear/Editar Canción ----
+let cancionModal = null;
+let cancionMemorias = [];
+window.abrirModalCancion = function(archivoId) {
+  limpiarCancionForm();
+  $('#cancionModalTitle').text("Nueva Canción");
+  $('#cancionForm').data("archivoId", archivoId);
+  cancionModal.show();
 }
-window.verDetalleArchivo = function(id) {
-  const archivo = loadArchivos().find(a => a.id === id);
-  if (!archivo) return;
-  let audioMetaHTML = '';
-  if (archivo.audioFileInfo && archivo.audioFileInfo.name) {
-    audioMetaHTML = `
-      <li><b>Nombre de archivo:</b> ${archivo.audioFileInfo.name}</li>
-      <li><b>Tamaño:</b> ${(archivo.audioFileInfo.size / 1024).toFixed(1)} KB</li>
-      <li><b>Tipo:</b> ${archivo.audioFileInfo.type}</li>
-      <li id="duracionAudioDetalle"><b>Duración:</b> <span>Cargando...</span></li>
-    `;
+function limpiarCancionForm() {
+  $('#cancionId').val('');
+  $('#cancionTitulo').val('');
+  $('#cancionLetra').val('');
+  $('#cancionAudioFile').val('');
+  $('#cancionAudioData').val('');
+  $('#cancionAudio').val('');
+  $('#cancionMotivos').val('');
+  $('#cancionEmociones').val('');
+  $('#cancionLugares').val('');
+  $('#cancionCreditos').val('');
+  $('#cancionSobre').val('');
+  $('#cancionMemoriaImg').val('');
+  $('#cancionMemoriaDesc').val('');
+  cancionMemorias = [];
+  renderMemoriasLista();
+}
+
+// Imagen/audio file a base64
+$('#cancionAudioFile').on('change', function(e){
+  const file = e.target.files[0];
+  if (file) {
+    if (file.size > 512 * 1024) {
+      alert("El archivo de audio es demasiado grande (máximo 500KB)");
+      $('#cancionAudioFile').val('');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      $('#cancionAudioData').val(evt.target.result);
+    }
+    reader.readAsDataURL(file);
   } else {
-    audioMetaHTML = `<li><b>Origen:</b> ${archivo.audio ? "URL/Base64" : "No especificado"}</li>`;
+    $('#cancionAudioData').val('');
   }
-  function badgeList(lista, color) {
-    return (Array.isArray(lista) ? lista : []).map(c=>`<span class="badge bg-${color} me-1">${c}</span>`).join('');
+});
+// ---- Memorias (imágenes) ----
+$('#btnAddMemoria').on('click', function(){
+  const fileInput = $('#cancionMemoriaImg')[0];
+  const desc = $('#cancionMemoriaDesc').val();
+  if (fileInput.files && fileInput.files[0]) {
+    const file = fileInput.files[0];
+    if (file.size > 512 * 1024) {
+      alert("Imagen demasiado grande (máximo 500KB)");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(evt){
+      cancionMemorias.push({ imagen: evt.target.result, descripcion: desc });
+      renderMemoriasLista();
+      $('#cancionMemoriaImg').val('');
+      $('#cancionMemoriaDesc').val('');
+    };
+    reader.readAsDataURL(file);
+  } else {
+    alert("Selecciona una imagen");
   }
-  const body = `
-    <div class="row">
-      <div class="col-md-5 mb-2">
-        <b>Título:</b> ${archivo.titulo || ""}
-        <hr class="my-1">
-        <b>Letra:</b><br><pre class="bg-light p-2 rounded" style="background:#232323!important;color:#fff!important;">${archivo.letra || ""}</pre>
-        <b>Intérprete:</b> ${archivo.interprete || "<span class='text-muted'>No especificado</span>"}
-        <br>
-        <b>Créditos:</b> ${archivo.creditos || "<span class='text-muted'>No especificado</span>"}
-        <hr class="my-1">
-        <b>Motivos:</b><br>${badgeList(archivo.motivos, "success")}
-        <hr class="my-1">
-        <b>Emociones:</b><br>${badgeList(archivo.emociones, "warning")}
-        <hr class="my-1">
-        <b>Lugares:</b><br>${badgeList(archivo.lugares, "primary")}
+});
+function renderMemoriasLista() {
+  $("#memoriasLista").html(
+    cancionMemorias.map((m,i)=>`
+      <div class="d-flex align-items-center mb-1">
+        <img src="${m.imagen}" style="max-width:48px;max-height:48px;" class="me-2 rounded">
+        <div>${m.descripcion||""}</div>
+        <button type="button" class="btn btn-sm btn-danger ms-2" onclick="borrarMemoria(${i})"><i class="bi bi-x"></i></button>
       </div>
-      <div class="col-md-7">
-        <b>Audio:</b>
-        ${archivo.audio ? `<audio id="audioDetalle" controls src="${archivo.audio}" style="width:100%;"></audio>` : "<span class='text-muted'>No especificado</span>"}
-        <ul class="mt-2">${audioMetaHTML}</ul>
-        ${archivo.imagen ? `<b>Imagen de portada:</b><br><img src="${archivo.imagen}" class="img-fluid rounded" style="max-width:200px;">` : ""}
+    `).join('')
+  );
+}
+window.borrarMemoria = function(idx){
+  cancionMemorias.splice(idx, 1);
+  renderMemoriasLista();
+};
+
+// --- Guardar canción ---
+$('#cancionForm').on('submit', function(e){
+  e.preventDefault();
+  const archivoId = $(this).data("archivoId");
+  let archivos = loadArchivos();
+  let arch = archivos.find(a=>a.id===archivoId);
+  if (!arch) return;
+  let canciones = arch.canciones||[];
+  const id = $('#cancionId').val() || Date.now().toString();
+  let cancion = canciones.find(c=>c.id===id) || {id};
+  cancion.titulo = $('#cancionTitulo').val();
+  cancion.letra = $('#cancionLetra').val();
+  cancion.audio = $('#cancionAudioData').val() || $('#cancionAudio').val();
+  cancion.motivos = $('#cancionMotivos').val().split(',').map(x=>x.trim()).filter(Boolean);
+  cancion.emociones = $('#cancionEmociones').val().split(',').map(x=>x.trim()).filter(Boolean);
+  cancion.lugares = $('#cancionLugares').val().split(',').map(x=>x.trim()).filter(Boolean);
+  cancion.creditos = $('#cancionCreditos').val();
+  cancion.sobre = $('#cancionSobre').val();
+  cancion.memorias = [...cancionMemorias];
+  const idx = canciones.findIndex(c=>c.id===id);
+  if(idx>=0) canciones[idx]=cancion;
+  else canciones.push(cancion);
+  arch.canciones = canciones;
+  saveArchivos(archivos);
+  cancionModal.hide();
+  renderVistaArchivoDetalle(arch);
+});
+
+// --- Editar canción ---
+window.editarCancion = function(archivoId, cancionId) {
+  let archivos = loadArchivos();
+  let arch = archivos.find(a=>a.id===archivoId);
+  if (!arch) return;
+  let cancion = arch.canciones.find(c=>c.id===cancionId);
+  if (!cancion) return;
+  $('#cancionId').val(cancion.id);
+  $('#cancionTitulo').val(cancion.titulo||"");
+  $('#cancionLetra').val(cancion.letra||"");
+  $('#cancionAudioFile').val('');
+  $('#cancionAudioData').val('');
+  $('#cancionAudio').val(cancion.audio||"");
+  $('#cancionMotivos').val((cancion.motivos||[]).join(','));
+  $('#cancionEmociones').val((cancion.emociones||[]).join(','));
+  $('#cancionLugares').val((cancion.lugares||[]).join(','));
+  $('#cancionCreditos').val(cancion.creditos||"");
+  $('#cancionSobre').val(cancion.sobre||"");
+  cancionMemorias = [...(cancion.memorias||[])];
+  renderMemoriasLista();
+  $('#cancionModalTitle').text("Editar Canción");
+  $('#cancionForm').data("archivoId", archivoId);
+  cancionModal.show();
+};
+
+// --- Detalle de canción ---
+let detalleCancionModal = null;
+window.verDetalleCancion = function(archivoId, cancionId) {
+  let archivos = loadArchivos();
+  let arch = archivos.find(a=>a.id===archivoId);
+  if (!arch) return;
+  let c = arch.canciones.find(c=>c.id===cancionId);
+  if (!c) return;
+  let html = `
+    <h5>${c.titulo}</h5>
+    ${c.audio?`<audio controls src="${c.audio}" style="width:100%;"></audio>`:""}
+    <pre class="bg-dark mt-2">${c.letra||""}</pre>
+    <div class="mt-2"><b>Motivos:</b> ${(c.motivos||[]).map(m=>`<span class="badge bg-success me-1">${m}</span>`).join('')}</div>
+    <div><b>Emociones:</b> ${(c.emociones||[]).map(e=>`<span class="badge bg-warning text-dark me-1">${e}</span>`).join('')}</div>
+    <div><b>Lugares:</b> ${(c.lugares||[]).map(l=>`<span class="badge bg-primary me-1">${l}</span>`).join('')}</div>
+    <div class="mt-2"><b>Créditos:</b> ${c.creditos||"<span class='text-muted'>No especificado</span>"}</div>
+    <div class="mt-2"><b>Sobre la canción:</b><br>${c.sobre||"<span class='text-muted'>No especificado</span>"}</div>
+    <div class="mt-2"><b>Memorias:</b>
+      <div class="row">
+        ${(c.memorias||[]).map(m=>`
+          <div class="col-4 mb-2">
+            <img src="${m.imagen}" class="img-fluid rounded mb-1">
+            <div class="text-white-50" style="font-size:0.9em">${m.descripcion||""}</div>
+          </div>
+        `).join('')}
       </div>
     </div>
   `;
-  $('#detalleAudioBody').html(body);
-  detalleAudioModal.show();
-  if (archivo.audioFileInfo && archivo.audioFileInfo.name && archivo.audio) {
-    const audioElem = document.getElementById('audioDetalle');
-    audioElem.onloadedmetadata = function() {
-      const segundos = Math.floor(audioElem.duration % 60).toString().padStart(2,'0');
-      const minutos = Math.floor(audioElem.duration / 60);
-      $('#duracionAudioDetalle span').text(`${minutos}:${segundos} minutos`);
-    }
-    if (audioElem.readyState >= 1) {
-      audioElem.onloadedmetadata();
-    }
-  }
-}
+  $('#detalleCancionBody').html(html);
+  detalleCancionModal.show();
+};
+
+// Inicial demo
 (function initDemoData(){
   if (!localStorage.getItem(LS_ARCHIVOS)) {
     saveArchivos([
       {
-        id: "1", titulo: "La playa", letra: "", audio: "", interprete: "", creditos: "", imagen: "", motivos:[], emociones:[], lugares:[], audioFileInfo:{}
-      },
-      {
-        id: "2", titulo: "Ciudad de luces", letra: "", audio: "", interprete: "", creditos: "", imagen: "https://picsum.photos/seed/ciudad/60", motivos:[], emociones:[], lugares:[], audioFileInfo:{}
+        id: "archivo1",
+        titulo: "Archivo de ejemplo",
+        descripcion: "Este es un archivo de muestra.",
+        canciones: [
+          {
+            id: "cancion1",
+            titulo: "Canción de muestra",
+            letra: "Letra de ejemplo...",
+            audio: "",
+            motivos: ["Amor"],
+            emociones: ["Alegría"],
+            lugares: ["Playa"],
+            creditos: "Letra: X. Música: Y",
+            sobre: "Compuesta en verano.",
+            memorias: []
+          }
+        ]
       }
     ]);
-  }
-  if (!localStorage.getItem(LS_CATEGORIAS)) {
-    saveCategorias(categoriasBase);
   }
 })();
